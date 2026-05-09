@@ -124,6 +124,36 @@ export async function createSpace(name: string) {
   return space
 }
 
+export async function joinSpace(inviteCode: string) {
+  const user = await getUser()
+  if (!user) throw new Error("Not logged in")
+
+  const { data: space, error: spaceError } = await supabase
+    .from('spaces')
+    .select('id')
+    .eq('invite_code', inviteCode.toUpperCase())
+    .single()
+
+  if (spaceError || !space) throw new Error("Space not found. Check the invite code.")
+
+  const { data: existing } = await supabase
+    .from('space_members')
+    .select('id')
+    .eq('space_id', space.id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (existing) throw new Error("You're already a member of this space.")
+
+  const { error: memberError } = await supabase
+    .from('space_members')
+    .insert({ space_id: space.id, user_id: user.id, role: 'member' })
+
+  if (memberError) throw memberError
+
+  return space
+}
+
 export async function updateSpace({ spaceId, name }: { spaceId: string, name: string }) {
   const { data, error } = await supabase
     .from('spaces')

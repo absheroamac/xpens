@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getSpaces, createSpace, updateSpace, getCategories, createCategory, getExpenses, createExpense, getProfile, updateProfile } from '@/services/api'
+import { getSpaces, createSpace, joinSpace, updateSpace, getCategories, createCategory, getExpenses, createExpense, getProfile, updateProfile } from '@/services/api'
 
 export function useSpaces() {
   return useQuery({
@@ -12,6 +12,16 @@ export function useCreateSpace() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: createSpace,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['spaces'] })
+    }
+  })
+}
+
+export function useJoinSpace() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: joinSpace,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['spaces'] })
     }

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSpaces, useCreateSpace } from '@/hooks/useQueries'
+import { useSpaces, useCreateSpace, useJoinSpace } from '@/hooks/useQueries'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,10 +14,11 @@ export default function SpacesPage() {
   const router = useRouter()
   const { data: spaces, isLoading } = useSpaces()
   const { mutate: createSpace, isPending } = useCreateSpace()
-  
+  const { mutate: joinSpace, isPending: isJoining, error: joinError } = useJoinSpace()
+
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showJoinModal, setShowJoinModal] = useState(false)
-  
+
   const [newSpaceName, setNewSpaceName] = useState('')
   const [inviteCode, setInviteCode] = useState('')
 
@@ -39,9 +40,13 @@ export default function SpacesPage() {
   const handleJoinSpace = (e: React.FormEvent) => {
     e.preventDefault()
     if (!inviteCode) return
-    alert(`Joining space via code: ${inviteCode} is not implemented yet.`)
-    setInviteCode('')
-    setShowJoinModal(false)
+    joinSpace(inviteCode, {
+      onSuccess: (data) => {
+        setShowJoinModal(false)
+        setInviteCode('')
+        router.push(`/dashboard/spaces/${data.id}`)
+      }
+    })
   }
 
   return (
@@ -152,10 +157,13 @@ export default function SpacesPage() {
                     autoFocus
                   />
                 </div>
+                {joinError && (
+                  <p className="text-sm text-destructive">{(joinError as Error).message}</p>
+                )}
                 <div className="pt-2 flex gap-3">
                   <Button type="button" variant="outline" className="flex-1" onClick={() => setShowJoinModal(false)}>Cancel</Button>
-                  <Button type="submit" className="flex-1" disabled={!inviteCode || inviteCode.length < 6}>
-                    Join
+                  <Button type="submit" className="flex-1" disabled={!inviteCode || inviteCode.length < 6 || isJoining}>
+                    {isJoining ? 'Joining...' : 'Join'}
                   </Button>
                 </div>
               </form>
