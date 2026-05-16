@@ -132,8 +132,10 @@ export default function SettlementsPage() {
 
   const getUserName = (userId: string) => {
     if (profile && profile.id === userId) return 'You'
-    const member = members?.find((m: any) => m.user_id === userId)
-    return member?.profiles?.name || `User ${userId.substring(0, 4)}`
+    const member: any = members?.find((m: any) => m.user_id === userId)
+    const p = member?.profiles
+    const name = Array.isArray(p) ? p[0]?.name : p?.name
+    return name || `User ${userId.substring(0, 4)}`
   }
 
   return (

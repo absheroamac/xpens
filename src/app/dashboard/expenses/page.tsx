@@ -72,7 +72,16 @@ export default function ExpensesPage() {
           {filteredExpenses.map(expense => {
             const category = categories?.find(c => c.id === expense.category_id)
             const isMe = profile && profile.id === expense.paid_by
-            const payerName = isMe ? 'You' : (members?.find((m: any) => m.user_id === expense.paid_by)?.profiles?.name || `User ${expense.paid_by?.substring(0, 4) || 'Unk'}`)
+            
+            let payerName = 'Unknown'
+            if (isMe) {
+              payerName = 'You'
+            } else {
+              const member: any = members?.find((m: any) => m.user_id === expense.paid_by)
+              const p = member?.profiles
+              const name = Array.isArray(p) ? p[0]?.name : p?.name
+              payerName = name || `User ${expense.paid_by?.substring(0, 4) || 'Unk'}`
+            }
             
             return (
               <Card key={expense.id} className="bg-surface border-none shadow-sm">
