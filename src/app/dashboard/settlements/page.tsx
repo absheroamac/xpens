@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useSpaceStore } from '@/store/useSpaceStore'
-import { useExpenses } from '@/hooks/useQueries'
+import { useExpenses, useSpaceMembers, useProfile } from '@/hooks/useQueries'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,7 +17,11 @@ type DebtRow = {
 
 export default function SettlementsPage() {
   const { activeSpaceId } = useSpaceStore()
-  const { data: expenses, isLoading } = useExpenses(activeSpaceId || '')
+  const { data: expenses, isLoading: loadingExpenses } = useExpenses(activeSpaceId || '')
+  const { data: members, isLoading: loadingMembers } = useSpaceMembers(activeSpaceId || '')
+  const { data: profile } = useProfile()
+  
+  const isLoading = loadingExpenses || loadingMembers
 
   // settled[key] = total amount already settled for that debt pair
   const [settled, setSettled] = useState<Record<string, number>>({})
@@ -32,21 +36,65 @@ export default function SettlementsPage() {
 
     expenses.forEach(exp => {
       const payer = exp.paid_by as string
+      const amount = Number(exp.amount)
       const splits: { user_id: string; amount: number }[] = exp.expense_splits ?? []
 
-      splits.forEach(split => {
-        if (split.user_id === payer) return
-        const key = `${split.user_id}→${payer}`
-        balances[key] = (balances[key] || 0) + Number(split.amount)
-      })
+      // Add to payer's balance (they are owed this money)
+      balances[payer] = (balances[payer] || 0) + amount
+
+      if (splits.length <= 1 && splits[0]?.user_id === payer && members && members.length > 0) {
+        // Legacy expense: Split equally among all members
+        const splitAmt = amount / members.length
+        members.forEach(m => {
+          balances[m.user_id] = (balances[m.user_id] || 0) - splitAmt
+        })
+      } else if (splits.length > 0) {
+        // New expense
+        splits.forEach(split => {
+          balances[split.user_id] = (balances[split.user_id] || 0) - Number(split.amount)
+        })
+      } else {
+        balances[payer] = (balances[payer] || 0) - amount
+      }
     })
 
-    return Object.entries(balances)
-      .filter(([, amount]) => amount > 0)
-      .map(([key, amount]) => {
-        const [debtor, creditor] = key.split('→')
-        return { key, debtor, creditor, originalAmount: amount }
-      })
+    const debtors = Object.entries(balances)
+      .filter(([, bal]) => bal < -0.01)
+      .map(([u, b]) => ({ user: u, amount: Math.abs(b) }))
+      .sort((a,b) => b.amount - a.amount)
+      
+    const creditors = Object.entries(balances)
+      .filter(([, bal]) => bal > 0.01)
+      .map(([u, b]) => ({ user: u, amount: b }))
+      .sort((a,b) => b.amount - a.amount)
+
+    const finalDebts: DebtRow[] = []
+    
+    let d = 0
+    let c = 0
+    while (d < debtors.length && c < creditors.length) {
+      const debtor = debtors[d]
+      const creditor = creditors[c]
+      
+      const settledAmt = Math.min(debtor.amount, creditor.amount)
+      
+      if (settledAmt > 0.01) {
+        finalDebts.push({
+          key: `${debtor.user}→${creditor.user}`,
+          debtor: debtor.user,
+          creditor: creditor.user,
+          originalAmount: settledAmt
+        })
+      }
+      
+      debtor.amount -= settledAmt
+      creditor.amount -= settledAmt
+      
+      if (debtor.amount < 0.01) d++
+      if (creditor.amount < 0.01) c++
+    }
+
+    return finalDebts
   }
 
   const debts = calculateDebts()
@@ -109,9 +157,9 @@ export default function SettlementsPage() {
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="font-semibold text-foreground text-sm">
-                        <span className="text-primary">{row.debtor === 'u2' ? 'User 2' : row.debtor}</span>
+                        <span className="text-primary">{profile && row.debtor === profile.id ? 'You' : `User ${row.debtor.substring(0, 4)}`}</span>
                         <span className="text-muted-foreground font-normal"> owes </span>
-                        <span className="text-primary">{row.creditor === 'u2' ? 'User 2' : 'You'}</span>
+                        <span className="text-primary">{profile && row.creditor === profile.id ? 'You' : `User ${row.creditor.substring(0, 4)}`}</span>
                       </p>
                       {settledAmt > 0 && !isFullySettled && (
                         <p className="text-xs text-muted-foreground mt-0.5">

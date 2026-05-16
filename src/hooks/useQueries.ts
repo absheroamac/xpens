@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getSpaces, createSpace, joinSpace, updateSpace, getCategories, createCategory, getExpenses, createExpense, getProfile, updateProfile } from '@/services/api'
+import { getSpaces, createSpace, joinSpace, updateSpace, getCategories, createCategory, getExpenses, createExpense, getProfile, updateProfile, getSpaceMembers } from '@/services/api'
 
 export function useSpaces() {
   return useQuery({
@@ -89,5 +89,13 @@ export function useUpdateProfile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile'] })
     }
+  })
+}
+
+export function useSpaceMembers(spaceId: string) {
+  return useQuery({
+    queryKey: ['spaceMembers', spaceId],
+    queryFn: () => getSpaceMembers(spaceId),
+    enabled: !!spaceId
   })
 }

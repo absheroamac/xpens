@@ -262,3 +262,14 @@ export async function updateProfile(name: string) {
   if (error) throw error
   return data
 }
+
+export async function getSpaceMembers(spaceId: string) {
+  if (!spaceId) return []
+  const { data, error } = await supabase
+    .from('space_members')
+    .select('user_id')
+    .eq('space_id', spaceId)
+    
+  if (error) throw error
+  return data
+}
