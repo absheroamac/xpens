@@ -267,7 +267,10 @@ export async function getSpaceMembers(spaceId: string) {
   if (!spaceId) return []
   const { data, error } = await supabase
     .from('space_members')
-    .select('user_id')
+    .select(`
+      user_id,
+      profiles ( name )
+    `)
     .eq('space_id', spaceId)
     
   if (error) throw error

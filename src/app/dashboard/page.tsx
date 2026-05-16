@@ -1,7 +1,7 @@
 'use client'
 
 import { useSpaceStore } from '@/store/useSpaceStore'
-import { useSpaces, useCategories, useExpenses, useProfile } from '@/hooks/useQueries'
+import { useSpaces, useCategories, useExpenses, useProfile, useSpaceMembers } from '@/hooks/useQueries'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { User, ChevronDown, TrendingDown, TrendingUp } from 'lucide-react'
@@ -12,6 +12,7 @@ export default function DashboardPage() {
   const { data: categories, isLoading: loadingCategories } = useCategories(activeSpaceId || '')
   const { data: expenses, isLoading: loadingExpenses } = useExpenses(activeSpaceId || '')
   const { data: profile } = useProfile()
+  const { data: members } = useSpaceMembers(activeSpaceId || '')
   
   if (loadingSpaces) return <div className="p-6 pt-12 text-center text-muted-foreground">Loading dashboard...</div>
 
@@ -82,6 +83,13 @@ export default function DashboardPage() {
     momDiff = Math.round(((currentMonthSpent - lastMonthSpent) / lastMonthSpent) * 100)
     isBetter = momDiff <= 0
     momText = `${Math.abs(momDiff)}% ${isBetter ? 'less' : 'more'} than last month`
+  }
+
+  // Helper to get real name
+  const getUserName = (userId: string) => {
+    if (profile && profile.id === userId) return 'You'
+    const member = members?.find((m: any) => m.user_id === userId)
+    return member?.profiles?.name || `User ${userId.substring(0, 4)}`
   }
 
   return (
@@ -169,8 +177,7 @@ export default function DashboardPage() {
           
           <div className="grid grid-cols-2 gap-4 mb-8">
             {Object.entries(userSpendMap).map(([userId, amount]) => {
-              const isMe = profile && profile.id === userId
-              const displayName = isMe ? 'You' : `User ${userId.substring(0, 4)}`
+              const displayName = getUserName(userId)
               
               return (
                 <Card key={userId} className="bg-surface border-none shadow-sm">

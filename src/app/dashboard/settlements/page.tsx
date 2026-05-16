@@ -130,6 +130,12 @@ export default function SettlementsPage() {
     return <div className="p-6 pt-12 text-center text-muted-foreground">Please select a space first.</div>
   }
 
+  const getUserName = (userId: string) => {
+    if (profile && profile.id === userId) return 'You'
+    const member = members?.find((m: any) => m.user_id === userId)
+    return member?.profiles?.name || `User ${userId.substring(0, 4)}`
+  }
+
   return (
     <div className="p-6 pt-12 pb-24">
       <header className="mb-8">
@@ -157,9 +163,9 @@ export default function SettlementsPage() {
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="font-semibold text-foreground text-sm">
-                        <span className="text-primary">{profile && row.debtor === profile.id ? 'You' : `User ${row.debtor.substring(0, 4)}`}</span>
+                        <span className="text-primary">{getUserName(row.debtor)}</span>
                         <span className="text-muted-foreground font-normal"> owes </span>
-                        <span className="text-primary">{profile && row.creditor === profile.id ? 'You' : `User ${row.creditor.substring(0, 4)}`}</span>
+                        <span className="text-primary">{getUserName(row.creditor)}</span>
                       </p>
                       {settledAmt > 0 && !isFullySettled && (
                         <p className="text-xs text-muted-foreground mt-0.5">
