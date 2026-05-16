@@ -1,15 +1,17 @@
 'use client'
 
 import { useSpaceStore } from '@/store/useSpaceStore'
-import { useSpaces, useCategories } from '@/hooks/useQueries'
+import { useSpaces, useCategories, useExpenses, useProfile } from '@/hooks/useQueries'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
-import { User, ChevronDown } from 'lucide-react'
+import { User, ChevronDown, TrendingDown, TrendingUp } from 'lucide-react'
 
 export default function DashboardPage() {
   const { activeSpaceId, setActiveSpace } = useSpaceStore()
   const { data: spaces, isLoading: loadingSpaces } = useSpaces()
   const { data: categories, isLoading: loadingCategories } = useCategories(activeSpaceId || '')
+  const { data: expenses, isLoading: loadingExpenses } = useExpenses(activeSpaceId || '')
+  const { data: profile } = useProfile()
   
   if (loadingSpaces) return <div className="p-6 pt-12 text-center text-muted-foreground">Loading dashboard...</div>
 
@@ -36,6 +38,50 @@ export default function DashboardPage() {
     if (pct >= 75) return 'bg-orange-400'
     if (pct >= 50) return 'bg-yellow-400'
     return 'bg-green-500'
+  }
+
+  // Compute month over month
+  const now = new Date()
+  const currentMonth = now.getMonth()
+  const currentYear = now.getFullYear()
+  const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1
+  const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear
+
+  let currentMonthSpent = 0
+  let lastMonthSpent = 0
+  const userSpendMap: Record<string, number> = {}
+
+  if (expenses) {
+    expenses.forEach(exp => {
+      const date = new Date(exp.created_at)
+      const m = date.getMonth()
+      const y = date.getFullYear()
+      const amt = Number(exp.amount) || 0
+
+      if (m === currentMonth && y === currentYear) {
+        currentMonthSpent += amt
+        // individual spending
+        const payer = exp.paid_by as string
+        userSpendMap[payer] = (userSpendMap[payer] || 0) + amt
+      } else if (m === lastMonth && y === lastMonthYear) {
+        lastMonthSpent += amt
+      }
+    })
+  }
+
+  // Calculate MoM difference
+  let momDiff = 0
+  let momText = ''
+  let isBetter = true
+
+  if (lastMonthSpent === 0) {
+    if (currentMonthSpent > 0) {
+      momText = 'First month of tracking!'
+    }
+  } else {
+    momDiff = Math.round(((currentMonthSpent - lastMonthSpent) / lastMonthSpent) * 100)
+    isBetter = momDiff <= 0
+    momText = `${Math.abs(momDiff)}% ${isBetter ? 'less' : 'more'} than last month`
   }
 
   return (
@@ -73,6 +119,13 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
+          {momText && (
+            <div className={`mb-6 p-3 rounded-lg flex items-center gap-3 text-sm font-medium ${isBetter ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+              {isBetter ? <TrendingDown className="w-5 h-5" /> : <TrendingUp className="w-5 h-5" />}
+              <span>{momText}</span>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4 mb-8">
             <Card className="bg-surface border-none shadow-md">
               <CardHeader className="pb-2">
@@ -109,6 +162,29 @@ export default function DashboardPage() {
               </div>
             </CardContent>
           </Card>
+
+          <div className="flex justify-between items-center mb-4 mt-8">
+            <h2 className="text-xl font-semibold text-foreground">Individual Spending (This Month)</h2>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4 mb-8">
+            {Object.entries(userSpendMap).map(([userId, amount]) => {
+              const isMe = profile && profile.id === userId
+              const displayName = isMe ? 'You' : `User ${userId.substring(0, 4)}`
+              
+              return (
+                <Card key={userId} className="bg-surface border-none shadow-sm">
+                  <CardContent className="p-4 flex justify-between items-center">
+                    <span className="font-medium text-foreground">{displayName}</span>
+                    <span className="font-semibold text-primary">₹{amount.toLocaleString()}</span>
+                  </CardContent>
+                </Card>
+              )
+            })}
+            {Object.keys(userSpendMap).length === 0 && (
+               <p className="text-muted-foreground text-sm col-span-2">No expenses yet this month.</p>
+            )}
+          </div>
 
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-foreground">Budget Breakdown</h2>

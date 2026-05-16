@@ -197,17 +197,39 @@ export async function createExpense({ spaceId, categoryId, amount, note }: { spa
     
   if (error) throw error
 
-  // Simple split logic: Assign it completely to the payer for now, 
-  // since we don't have multi-user selection built yet.
-  const { error: splitError } = await supabase
-    .from('expense_splits')
-    .insert({
-      expense_id: expense.id,
-      user_id: user.id,
-      amount
-    })
+  // Fetch all members of the space to split the expense equally
+  const { data: members, error: membersError } = await supabase
+    .from('space_members')
+    .select('user_id')
+    .eq('space_id', spaceId)
 
-  if (splitError) throw splitError
+  if (membersError) throw membersError
+
+  if (members && members.length > 0) {
+    const splitAmount = amount / members.length
+    const splits = members.map(m => ({
+      expense_id: expense.id,
+      user_id: m.user_id,
+      amount: splitAmount
+    }))
+    
+    const { error: splitError } = await supabase
+      .from('expense_splits')
+      .insert(splits)
+
+    if (splitError) throw splitError
+  } else {
+    // Fallback if no members found for some reason
+    const { error: splitError } = await supabase
+      .from('expense_splits')
+      .insert({
+        expense_id: expense.id,
+        user_id: user.id,
+        amount
+      })
+
+    if (splitError) throw splitError
+  }
 
   return expense
 }
