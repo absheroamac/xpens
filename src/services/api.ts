@@ -44,10 +44,16 @@ export async function getCategories(spaceId: string) {
   if (error) throw error
   
   // Also get expenses to calculate 'spent'
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
+
   const { data: expenses } = await supabase
     .from('expenses')
     .select('category_id, amount')
     .eq('space_id', spaceId)
+    .gte('created_at', monthStart)
+    .lt('created_at', monthEnd)
 
   // Calculate spent per category
   return data.map(cat => {
